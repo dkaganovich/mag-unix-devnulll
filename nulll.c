@@ -47,6 +47,8 @@ static ssize_t nulll_write(struct file *file, const char __user * in, size_t siz
 	}
 
 	if (capacity && written + size > capacity) {// check within critical section to avoid racing
+		written = capacity;
+
 		result = -ENOSPC;
 		goto out_unlock;
 	}
