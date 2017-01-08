@@ -4,6 +4,7 @@
 // http://www.tldp.org/LDP/lkmpg/2.6/html/x569.html
 // https://raw.githubusercontent.com/torvalds/linux/master/drivers/char/mem.c
 // http://unix.stackexchange.com/questions/4711/what-is-the-difference-between-ioctl-unlocked-ioctl-and-compat-ioctl
+// http://www.makelinux.net/ldd3/
 
 #include <linux/init.h>		/* __init and __exit macroses */
 #include <linux/kernel.h>	/* KERN_INFO macros */
@@ -40,22 +41,30 @@ static ssize_t nulll_read(struct file *file, char __user * out, size_t size, lof
 static ssize_t nulll_write(struct file *file, const char __user * in, size_t size, loff_t * off)
 {
 	ssize_t result;
+	size_t _size;
 
 	if (mutex_lock_interruptible(&lock)) {
 		result = -ERESTARTSYS;
 		goto out;
 	}
 
-	if (capacity && written + size > capacity) {// check within critical section to avoid racing
-		written = capacity;
+	pr_devel("bytes requested: %lu\n", size);
+
+	if (capacity && written == capacity) {// check within critical section to avoid racing
+		pr_devel("nulll device exhausted\n");
 
 		result = -ENOSPC;
 		goto out_unlock;
 	}
 
-	written += size;
+	_size = (!capacity ? size : 
+		(written + size < capacity ? size : capacity - written));
 
-	result = size;
+	written += _size;
+
+	pr_devel("bytes written: %lu\n", _size);
+
+	result = _size;
 
 out_unlock:
 	mutex_unlock(&lock);
